@@ -4,6 +4,7 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -212,6 +213,83 @@ func f3_2(input string) {
 	}
 }
 
+func getSleepTotalsAndMinutes(rows []string) (map[int]int, map[int]map[int]int) {
+	sort.Strings(rows)
+	re := regexp.MustCompile(`\[(?P<date>\d{4}-\d{2}-\d{2}) (?P<hour>\d{2}):(?P<min>\d{2})\] (?P<text>.+)`)
+
+	guardRe := regexp.MustCompile(`Guard #(?P<id>\d+) begins shift`)
+
+	sleepTotals := make(map[int]int)
+	sleepMinutes := map[int]map[int]int{}
+	currentGuard := -1
+	sleepMin := 0
+	for _, row := range rows {
+		match := re.FindStringSubmatch(row)
+		min, _ := strconv.Atoi(match[3])
+		logStr := match[4]
+		if strings.Contains(logStr, "Guard") {
+			guardMatch := guardRe.FindStringSubmatch(logStr)
+			currentGuard, _ = strconv.Atoi(guardMatch[1])
+			sleepMin = 0
+		} else if logStr == "falls asleep" {
+			sleepMin = min
+		} else {
+			if sleepTotals[currentGuard] == 0 {
+				sleepMinutes[currentGuard] = map[int]int{}
+			}
+			sleepTotals[currentGuard] += min - sleepMin
+			for i := sleepMin; i < min; i++ {
+				sleepMinutes[currentGuard][i]++
+			}
+		}
+	}
+	return sleepTotals, sleepMinutes
+}
+
+func f4(input string) {
+	rows := strings.Split(strings.Trim(input, "\n"), "\n")
+
+	sleepTotals, sleepMinutes := getSleepTotalsAndMinutes(rows)
+
+	max := 0
+	maxID := -1
+	for id, total := range sleepTotals {
+		if total > max {
+			max = total
+			maxID = id
+		}
+	}
+	max = 0
+	maxMin := -1
+	for min, total := range sleepMinutes[maxID] {
+		if total > max {
+			max = total
+			maxMin = min
+		}
+	}
+	println(maxID * maxMin)
+}
+
+func f4_2(input string) {
+	rows := strings.Split(strings.Trim(input, "\n"), "\n")
+
+	_, sleepMinutes := getSleepTotalsAndMinutes(rows)
+
+	max := 0
+	maxMin := -1
+	maxID := -1
+	for id, minuteMap := range sleepMinutes {
+		for min, total := range minuteMap {
+			if total > max {
+				max = total
+				maxMin = min
+				maxID = id
+			}
+		}
+	}
+	println(maxID * maxMin)
+}
+
 func main() {
 	funcMap := map[string]interface{}{
 		"1":   f1,
@@ -220,6 +298,8 @@ func main() {
 		"2_2": f2_2,
 		"3":   f3,
 		"3_2": f3_2,
+		"4":   f4,
+		"4_2": f4_2,
 	}
 	funcName := os.Args[1]
 	args := os.Args[2:]
